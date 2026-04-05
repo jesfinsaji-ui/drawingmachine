@@ -1,5 +1,5 @@
 """
-DRAWING MACHINE — Streamlit Web App
+DRAWING MACHINE — Streamlit Web App  (with Login)
 Image → Grayscale → Edges → Contours → G-code → Preview
 
 SETUP:
@@ -18,8 +18,213 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
+
 # ══════════════════════════════════════════════
-#  PAGE CONFIG
+#  LOGIN SYSTEM
+# ══════════════════════════════════════════════
+
+# ── Credentials — edit these ─────────────────
+USERS = {
+    "admin": "machine2024",
+    "user1": "drawbot",
+}
+
+# ── Session bootstrap ─────────────────────────
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
+# ── Login gate ────────────────────────────────
+if not st.session_state.authenticated:
+
+    st.set_page_config(
+        page_title="Drawing Machine — Login",
+        page_icon="✏️",
+        layout="centered",
+        initial_sidebar_state="collapsed",
+    )
+
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+
+    :root {
+        --bg: #0c0c0c;
+        --panel: #131313;
+        --card: #181818;
+        --border: #272727;
+        --accent: #e8c547;
+        --accent2: #4ecdc4;
+        --red: #e05c5c;
+        --text: #e0dfd8;
+        --sub: #555550;
+    }
+
+    html, body, [data-testid="stAppViewContainer"] {
+        background-color: var(--bg) !important;
+        color: var(--text) !important;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    [data-testid="collapsedControl"] { display: none !important; }
+    [data-testid="stSidebar"]        { display: none !important; }
+
+    .block-container {
+        padding-top: 0 !important;
+        max-width: 460px !important;
+    }
+
+    .login-card {
+        width: 100%;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--accent);
+        padding: 48px 40px 40px;
+        margin-bottom: 0;
+        position: relative;
+    }
+
+    .login-logo {
+        font-family: 'Syne', sans-serif;
+        font-size: 28px;
+        font-weight: 800;
+        color: var(--text);
+        letter-spacing: -0.02em;
+        margin-bottom: 4px;
+    }
+
+    .login-logo span { color: var(--accent); }
+
+    .login-sub {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        color: var(--sub);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        margin-bottom: 40px;
+    }
+
+    .stTextInput > div > div > input {
+        background-color: #101010 !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 2px !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 13px !important;
+        padding: 12px 14px !important;
+        transition: border-color 0.15s;
+    }
+
+    .stTextInput > div > div > input:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 1px var(--accent) !important;
+        outline: none !important;
+    }
+
+    .stTextInput label {
+        font-size: 10px !important;
+        font-weight: 700 !important;
+        color: var(--sub) !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.15em !important;
+        font-family: 'JetBrains Mono', monospace !important;
+    }
+
+    .stButton > button {
+        background-color: var(--accent) !important;
+        color: #0c0c0c !important;
+        border: none !important;
+        border-radius: 2px !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-weight: 700 !important;
+        font-size: 12px !important;
+        letter-spacing: 0.1em !important;
+        padding: 14px 20px !important;
+        width: 100% !important;
+        margin-top: 8px;
+        transition: opacity 0.15s;
+        text-transform: uppercase;
+    }
+
+    .stButton > button:hover { opacity: 0.85 !important; }
+
+    [data-testid="stAlert"] {
+        background-color: #1a0a0a !important;
+        border: 1px solid var(--red) !important;
+        border-radius: 2px !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 12px !important;
+    }
+
+    .corner-mark {
+        position: absolute;
+        top: 12px;
+        right: 16px;
+        font-size: 10px;
+        color: var(--sub);
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: 0.08em;
+    }
+
+    .grid-bg {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image:
+            linear-gradient(var(--border) 1px, transparent 1px),
+            linear-gradient(90deg, var(--border) 1px, transparent 1px);
+        background-size: 40px 40px;
+        opacity: 0.3;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .footer-note {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        color: var(--sub);
+        text-align: center;
+        margin-top: 20px;
+        letter-spacing: 0.08em;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="grid-bg"></div>', unsafe_allow_html=True)
+
+    # Vertical spacer to centre card
+    st.markdown("<div style='height: 12vh'></div>", unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="login-card">
+        <div class="corner-mark">v2.0</div>
+        <div class="login-logo">DRAWING<span>.</span>MACHINE</div>
+        <div class="login-sub">Image → Contours → G-code</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    username = st.text_input("Username", placeholder="enter username", key="login_user")
+    password = st.text_input("Password", placeholder="••••••••", type="password", key="login_pass")
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    if st.button("→  ACCESS MACHINE"):
+        if username in USERS and USERS[username] == password:
+            st.session_state.authenticated = True
+            st.session_state.username = username
+            st.rerun()
+        else:
+            st.error("✗  Invalid credentials. Check username and password.")
+
+    st.markdown("""
+    <div class="footer-note">DRAWING MACHINE · RESTRICTED ACCESS</div>
+    """, unsafe_allow_html=True)
+
+    st.stop()   # Nothing below renders until authenticated
+
+
+# ══════════════════════════════════════════════
+#  PAGE CONFIG  (runs only after login)
 # ══════════════════════════════════════════════
 
 st.set_page_config(
@@ -28,6 +233,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
 
 # ══════════════════════════════════════════════
 #  CUSTOM CSS
@@ -214,6 +420,20 @@ hr {
     border: 1px dashed var(--border) !important;
     border-radius: 2px !important;
 }
+
+.user-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--sub);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.user-badge span {
+    color: var(--accent2);
+    font-weight: 700;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -373,7 +593,6 @@ class ToolpathRenderer:
         def mm2px(x, y):
             return (int(ox + x * scale), int(oy + (board_h - y) * scale))
 
-        # Grid
         for gx in range(10, int(board_w), 10):
             p = int(ox + gx * scale)
             draw.line([(p, int(oy)), (p, int(oy + board_h * scale))], fill=self.GRID)
@@ -381,12 +600,10 @@ class ToolpathRenderer:
             p = int(oy + (board_h - gy) * scale)
             draw.line([(int(ox), p), (int(ox + board_w * scale), p)], fill=self.GRID)
 
-        # Board border
         bx0, by0 = mm2px(0, 0)
         bx1, by1 = mm2px(board_w, board_h)
         draw.rectangle([bx0, by1, bx1, by0], outline=self.BOARD_LINE, width=2)
 
-        # Travel lines
         prev = None
         for cnt in contours:
             sp = mm2px(*cnt[0])
@@ -394,7 +611,6 @@ class ToolpathRenderer:
                 self._dashed(draw, prev, sp, self.TRAVEL)
             prev = mm2px(*cnt[-1])
 
-        # Strokes
         for cnt in contours:
             pts = [mm2px(x, y) for x, y in cnt]
             if len(pts) >= 2:
@@ -451,6 +667,24 @@ def run_pipeline(pil_img, board_w, board_h, margin,
 # ══════════════════════════════════════════════
 
 with st.sidebar:
+    # User badge at top of sidebar
+    st.markdown(f"""
+    <div style="
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        color: #555550;
+        padding: 8px 0 16px 0;
+        border-bottom: 1px solid #272727;
+        margin-bottom: 8px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    ">
+        <span style="color:#4ecdc4; font-weight:700;">●</span>
+        LOGGED IN AS <span style="color:#e8c547; font-weight:700; margin-left:4px;">{st.session_state.username.upper()}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown('<div class="section-label">▸ Board (mm)</div>', unsafe_allow_html=True)
     board_w = st.number_input("Width",   min_value=10, max_value=2000, value=200, step=10)
     board_h = st.number_input("Height",  min_value=10, max_value=2000, value=150, step=10)
@@ -467,6 +701,13 @@ with st.sidebar:
     min_points = st.slider("Min Points",   2, 50,  8)
 
     st.markdown("---")
+
+    # Logout button
+    if st.button("⏻  LOGOUT"):
+        st.session_state.authenticated = False
+        st.session_state.username = ""
+        st.rerun()
+
     st.markdown(
         '<p style="font-size:10px;color:#555550;font-family:JetBrains Mono,monospace;">'
         'DRAWING MACHINE v2.0<br>Image → Contours → G-code</p>',
@@ -531,7 +772,6 @@ if uploaded:
                 n_points    = sum(len(c) for c in scaled)
                 gcode_lines = gcode.count("\n") + 1
 
-                # Stats row
                 c1, c2, c3, c4 = st.columns(4)
                 for col, label, val in [
                     (c1, "Contours",    str(n_contours)),
@@ -547,7 +787,6 @@ if uploaded:
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # Toolpath + Edge + G-code
                 col_tp, col_gc = st.columns([1, 1])
 
                 with col_tp:
@@ -560,7 +799,6 @@ if uploaded:
 
                 with col_gc:
                     st.markdown('<div class="panel-header"><span style="color:#7ec893">●</span> G-code Output</div>', unsafe_allow_html=True)
-                    # Show first 120 lines for readability
                     preview_lines = "\n".join(gcode.split("\n")[:120])
                     if gcode_lines > 120:
                         preview_lines += f"\n\n; ... ({gcode_lines - 120} more lines) ..."
@@ -578,7 +816,6 @@ if uploaded:
                 st.error(f"Pipeline error: {ex}")
 
 else:
-    # Placeholder state
     st.markdown("""
     <div style="
         border: 1px dashed #272727;
